@@ -1,0 +1,980 @@
+service: pqr
+frameworkVersion: "3"
+provider:
+  name: aws
+  runtime: python3.9
+  stage: ${opt:stage, 'DEV'}
+  environment:
+    DB_ENDPOINT: ${ssm:/pqr/${self:provider.stage}/postgress/host}
+    DB_USERNAME: ${ssm:/pqr/${self:provider.stage}/postgress/user}
+    DB_PASSWORD: ${ssm:/pqr/${self:provider.stage}/postgress/password}
+    DB_DATABASE: ${ssm:/pqr/${self:provider.stage}/postgress/dbname}
+    CONFA_EMAIL_DOMAIN: ${ssm:/pqr/${self:provider.stage}/domain}
+    ELASTIC_REGION: "us-east-1"
+    SENDER: "Comunicaciones Confa<noreply.solicitudes@confa.co>"
+    ACCESS_TOKEN_EXPIRE_MINUTES: 60
+    SECRET_KEY: ${ssm:/pqr/${self:provider.stage}/tokenkey}
+    ALGORITHM: "HS256"
+    BUCKET_FILES: ${ssm:/pqr/${self:provider.stage}/bucket}
+    LOGIN_URL_ZION: ${ssm:/pqr/${self:provider.stage}/zion/login}
+    VALIDATE_URL_ZION: ${ssm:/pqr/${self:provider.stage}/zion/validation}
+    ZION_GENERIC_PASSWORD: ${ssm:/pqr/${self:provider.stage}/zion/password}
+custom:
+  ROLE_BACK: ${ssm:/role/confa/confa-backend-role}
+  CONFA_LAYER: ${ssm:/layer/confa/core}
+  JOSE_LAYER: ${ssm:/layer/confa/jose}
+  HOLIDAYS_LAYER: ${ssm:/layer/confa/holidays}
+functions:
+  utils-refresh-token:
+    handler: utils/token_manage.refresh_token
+    package:
+      individually: true
+      patterns:
+        - "!**/*"
+        - "utils/token_manage.py"
+        - "connection/**"
+        - "models/**"
+        - "utils/**"
+        - "!node_modules/**"
+    role: ${self:custom.ROLE_BACK}
+    layers:
+      - ${self:custom.CONFA_LAYER}
+      - ${self:custom.JOSE_LAYER}
+    events:
+      - http:
+          path: /token/refresh
+          method: POST
+          cors: true
+          integration: lambda
+  backoffice-get-all:
+    handler: backoffice/get_all.main
+    package:
+      individually: true
+      patterns:
+        - "!**/*"
+        - "backoffice/get_all.py"
+        - "connection/**"
+        - "models/**"
+        - "utils/**"
+        - "!node_modules/**"
+    role: ${self:custom.ROLE_BACK}
+    layers:
+      - ${self:custom.CONFA_LAYER}
+      - ${self:custom.JOSE_LAYER}
+    events:
+      - http:
+          path: /db/{entity}
+          method: GET
+          cors: true
+          integration: lambda
+  backoffice-get-pagination:
+    handler: backoffice/get_all_pagination.main
+    package:
+      individually: true
+      patterns:
+        - "!**/*"
+        - "backoffice/get_all_pagination.py"
+        - "connection/**"
+        - "models/**"
+        - "utils/**"
+        - "!node_modules/**"
+    role: ${self:custom.ROLE_BACK}
+    layers:
+      - ${self:custom.CONFA_LAYER}
+      - ${self:custom.JOSE_LAYER}
+    events:
+      - http:
+          path: /db/pagination/{entity}
+          method: POST
+          cors: true
+          integration: lambda
+  users-get-requestype-by-aplicantype:
+    handler: users/get_requestype_by_applicantype.main
+    package:
+      individually: true
+      patterns:
+        - "!**/*"
+        - "users/get_requestype_by_applicantype.py"
+        - "connection/**"
+        - "models/**"
+        - "utils/**"
+        - "!node_modules/**"
+    role: ${self:custom.ROLE_BACK}
+    layers:
+      - ${self:custom.CONFA_LAYER}
+    events:
+      - http:
+          path: /requeststypes/by/{applicant_type_id}
+          method: GET
+          cors: true
+          integration: lambda
+  users-get-form:
+    handler: users/get_form.main
+    package:
+      individually: true
+      patterns:
+        - "!**/*"
+        - "users/get_form.py"
+        - "connection/**"
+        - "models/**"
+        - "utils/**"
+        - "!node_modules/**"
+    role: ${self:custom.ROLE_BACK}
+    layers:
+      - ${self:custom.CONFA_LAYER}
+    events:
+      - http:
+          path: /get_form/{id}
+          method: GET
+          cors: true
+          integration: lambda
+  core-login:
+    handler: core/login.lambda_handler
+    package:
+      individually: true
+      patterns:
+        - "!**/*"
+        - "core/login.py"
+        - "connection/**"
+        - "models/**"
+        - "utils/**"
+        - "!node_modules/**"
+    role: ${self:custom.ROLE_BACK}
+    layers:
+      - ${self:custom.CONFA_LAYER}
+      - ${self:custom.JOSE_LAYER}
+    events:
+      - http:
+          path: /login
+          method: POST
+          cors: true
+          integration: lambda
+  users-get-categories-by-modality:
+    handler: users/get_categories_by_modality.main
+    package:
+      individually: true
+      patterns:
+        - "!**/*"
+        - "users/get_categories_by_modality.py"
+        - "connection/**"
+        - "models/**"
+        - "utils/**"
+        - "!node_modules/**"
+    role: ${self:custom.ROLE_BACK}
+    layers:
+      - ${self:custom.CONFA_LAYER}
+      - ${self:custom.JOSE_LAYER}
+    events:
+      - http:
+          path: /categories/by/{modality_id}
+          method: GET
+          cors: true
+          integration: lambda
+  users-get-tipologies-by-category:
+    handler: users/get_tipologies_by_category.main
+    package:
+      individually: true
+      patterns:
+        - "!**/*"
+        - "users/get_tipologies_by_category.py"
+        - "connection/**"
+        - "models/**"
+        - "utils/**"
+        - "!node_modules/**"
+    role: ${self:custom.ROLE_BACK}
+    layers:
+      - ${self:custom.CONFA_LAYER}
+      - ${self:custom.JOSE_LAYER}
+    events:
+      - http:
+          path: /tipologies/by/category
+          method: POST
+          cors: true
+          integration: lambda
+  users-get-cause-by-tipology:
+    handler: users/get_cause_by_tipology.main
+    package:
+      individually: true
+      patterns:
+        - "!**/*"
+        - "users/get_cause_by_tipology.py"
+        - "connection/**"
+        - "models/**"
+        - "utils/**"
+        - "!node_modules/**"
+    role: ${self:custom.ROLE_BACK}
+    layers:
+      - ${self:custom.CONFA_LAYER}
+      - ${self:custom.JOSE_LAYER}
+    events:
+      - http:
+          path: /cause/by/tipology
+          method: POST
+          cors: true
+          integration: lambda
+  users-create-request:
+    handler: users/create_request.main
+    package:
+      individually: true
+      patterns:
+        - "!**/*"
+        - "users/create_request.py"
+        - "connection/**"
+        - "models/**"
+        - "utils/**"
+        - "!node_modules/**"
+    role: ${self:custom.ROLE_BACK}
+    layers:
+      - ${self:custom.CONFA_LAYER}
+    events:
+      - http:
+          path: /request/create
+          method: POST
+          cors: true
+          integration: lambda
+  utils-upload-request-attachments:
+    handler: utils/upload_files.main
+    package:
+      individually: true
+      patterns:
+        - "!**/*"
+        - "utils/upload_files.py"
+        - "connection/**"
+        - "core/**"
+        - "models/**"
+        - "utils/**"
+        - "!node_modules/**"
+    role: ${self:custom.ROLE_BACK}
+    layers:
+      - ${self:custom.CONFA_LAYER}
+      - ${self:custom.JOSE_LAYER}
+    events:
+      - http:
+          path: /request/attachments
+          method: POST
+          cors: true
+          integration: lambda
+  backoffice-get-requests-by-assigned-user:
+    handler: backoffice/get_requests_by_assigned_user.main
+    package:
+      individually: true
+      patterns:
+        - "!**/*"
+        - "backoffice/get_requests_by_assigned_user.py"
+        - "connection/**"
+        - "models/**"
+        - "utils/**"
+        - "!node_modules/**"
+    role: ${self:custom.ROLE_BACK}
+    layers:
+      - ${self:custom.CONFA_LAYER}
+      - ${self:custom.JOSE_LAYER}
+      - ${self:custom.HOLIDAYS_LAYER}
+    events:
+      - http:
+          path: /request/byassigned/{assigned_user}
+          method: POST
+          cors: true
+          integration: lambda
+  backoffice-create-user:
+    handler: backoffice/create_user.main
+    package:
+      individually: true
+      patterns:
+        - "!**/*"
+        - "backoffice/create_user.py"
+        - "connection/**"
+        - "models/**"
+        - "utils/**"
+        - "!node_modules/**"
+    role: ${self:custom.ROLE_BACK}
+    layers:
+      - ${self:custom.CONFA_LAYER}
+      - ${self:custom.JOSE_LAYER}
+    events:
+      - http:
+          path: /user/create
+          method: POST
+          cors: true
+          integration: lambda
+  backoffice-in-active-user:
+    handler: backoffice/in_active_user.main
+    package:
+      individually: true
+      patterns:
+        - "!**/*"
+        - "backoffice/in_active_user.py"
+        - "connection/**"
+        - "models/**"
+        - "utils/**"
+        - "!node_modules/**"
+    role: ${self:custom.ROLE_BACK}
+    layers:
+      - ${self:custom.CONFA_LAYER}
+      - ${self:custom.JOSE_LAYER}
+    events:
+      - http:
+          path: /user/in-activate
+          method: POST
+          cors: true
+          integration: lambda
+  backoffice-in-visible-user:
+    handler: backoffice/in_visible_user.main
+    package:
+      individually: true
+      patterns:
+        - "!**/*"
+        - "backoffice/in_visible_user.py"
+        - "connection/**"
+        - "models/**"
+        - "utils/**"
+        - "!node_modules/**"
+    role: ${self:custom.ROLE_BACK}
+    layers:
+      - ${self:custom.CONFA_LAYER}
+      - ${self:custom.JOSE_LAYER}
+    events:
+      - http:
+          path: /user/in-visible
+          method: POST
+          cors: true
+          integration: lambda
+  backoffice-assign-user:
+    handler: backoffice/assign_user.main
+    package:
+      individually: true
+      patterns:
+        - "!**/*"
+        - "backoffice/assign_user.py"
+        - "connection/**"
+        - "models/**"
+        - "utils/**"
+        - "!node_modules/**"
+    role: ${self:custom.ROLE_BACK}
+    layers:
+      - ${self:custom.CONFA_LAYER}
+      - ${self:custom.JOSE_LAYER}
+    events:
+      - http:
+          path: /request/assignuser
+          method: POST
+          cors: true
+          integration: lambda
+  backoffice-create-request-type:
+    handler: backoffice/create_request_type.main
+    package:
+      individually: true
+      patterns:
+        - "!**/*"
+        - "backoffice/create_request_type.py"
+        - "connection/**"
+        - "models/**"
+        - "utils/**"
+        - "!node_modules/**"
+    role: ${self:custom.ROLE_BACK}
+    layers:
+      - ${self:custom.CONFA_LAYER}
+      - ${self:custom.JOSE_LAYER}
+    events:
+      - http:
+          path: /requestype/create
+          method: POST
+          cors: true
+          integration: lambda
+  backoffice-in-active-request:
+    handler: backoffice/in_active_request.main
+    package:
+      individually: true
+      patterns:
+        - "!**/*"
+        - "backoffice/in_active_request.py"
+        - "connection/**"
+        - "models/**"
+        - "utils/**"
+        - "!node_modules/**"
+    role: ${self:custom.ROLE_BACK}
+    layers:
+      - ${self:custom.CONFA_LAYER}
+      - ${self:custom.JOSE_LAYER}
+    events:
+      - http:
+          path: /request/in-activate
+          method: POST
+          cors: true
+          integration: lambda
+  backoffice-modify-request:
+    handler: backoffice/modify_request.main
+    package:
+      individually: true
+      patterns:
+        - "!**/*"
+        - "backoffice/modify_request.py"
+        - "connection/**"
+        - "models/**"
+        - "utils/**"
+        - "!node_modules/**"
+    role: ${self:custom.ROLE_BACK}
+    layers:
+      - ${self:custom.CONFA_LAYER}
+      - ${self:custom.JOSE_LAYER}
+    events:
+      - http:
+          path: /requestype/modify
+          method: POST
+          cors: true
+          integration: lambda
+  backoffice-create-applicant-type:
+    handler: backoffice/create_applicant_type.main
+    package:
+      individually: true
+      patterns:
+        - "!**/*"
+        - "backoffice/create_applicant_type.py"
+        - "connection/**"
+        - "models/**"
+        - "utils/**"
+        - "!node_modules/**"
+    role: ${self:custom.ROLE_BACK}
+    layers:
+      - ${self:custom.CONFA_LAYER}
+      - ${self:custom.JOSE_LAYER}
+    events:
+      - http:
+          path: /applicant/create
+          method: POST
+          cors: true
+          integration: lambda
+  backoffice-in-active-applicant:
+    handler: backoffice/in_active_applicant.main
+    package:
+      individually: true
+      patterns:
+        - "!**/*"
+        - "backoffice/in_active_applicant.py"
+        - "connection/**"
+        - "models/**"
+        - "utils/**"
+        - "!node_modules/**"
+    role: ${self:custom.ROLE_BACK}
+    layers:
+      - ${self:custom.CONFA_LAYER}
+      - ${self:custom.JOSE_LAYER}
+    events:
+      - http:
+          path: /applicant/in-activate
+          method: POST
+          cors: true
+          integration: lambda
+  backoffice-modify-applicant:
+    handler: backoffice/modify_applicant.main
+    package:
+      individually: true
+      patterns:
+        - "!**/*"
+        - "backoffice/modify_applicant.py"
+        - "connection/**"
+        - "models/**"
+        - "utils/**"
+        - "!node_modules/**"
+    role: ${self:custom.ROLE_BACK}
+    layers:
+      - ${self:custom.CONFA_LAYER}
+      - ${self:custom.JOSE_LAYER}
+    events:
+      - http:
+          path: /applicantype/modify
+          method: POST
+          cors: true
+          integration: lambda
+  backoffice-get-applicant-request-association:
+    handler: backoffice/get_applicant_request_association.main
+    package:
+      individually: true
+      patterns:
+        - "!**/*"
+        - "backoffice/get_applicant_request_association.py"
+        - "connection/**"
+        - "models/**"
+        - "utils/**"
+        - "!node_modules/**"
+    role: ${self:custom.ROLE_BACK}
+    layers:
+      - ${self:custom.CONFA_LAYER}
+      - ${self:custom.JOSE_LAYER}
+    events:
+      - http:
+          path: /applicants/requests/association
+          method: POST
+          cors: true
+          integration: lambda
+  backoffice-create-applicant-request-association:
+    handler: backoffice/create_applicant_request_association.main
+    package:
+      individually: true
+      patterns:
+        - "!**/*"
+        - "backoffice/create_applicant_request_association.py"
+        - "connection/**"
+        - "models/**"
+        - "utils/**"
+        - "!node_modules/**"
+    role: ${self:custom.ROLE_BACK}
+    layers:
+      - ${self:custom.CONFA_LAYER}
+      - ${self:custom.JOSE_LAYER}
+    events:
+      - http:
+          path: /associate/applicant/request
+          method: POST
+          cors: true
+          integration: lambda
+  backoffice-in-activate-applicant-request-association:
+    handler: backoffice/in_active_applicant_request_association.main
+    package:
+      individually: true
+      patterns:
+        - "!**/*"
+        - "backoffice/in_active_applicant_request_association.py"
+        - "connection/**"
+        - "models/**"
+        - "utils/**"
+        - "!node_modules/**"
+    role: ${self:custom.ROLE_BACK}
+    layers:
+      - ${self:custom.CONFA_LAYER}
+      - ${self:custom.JOSE_LAYER}
+    events:
+      - http:
+          path: /association/applicant/request/in-activate
+          method: POST
+          cors: true
+          integration: lambda
+  backoffice-create-modality:
+    handler: backoffice/create_modality.main
+    package:
+      individually: true
+      patterns:
+        - "!**/*"
+        - "backoffice/create_modality.py"
+        - "connection/**"
+        - "models/**"
+        - "utils/**"
+        - "!node_modules/**"
+    role: ${self:custom.ROLE_BACK}
+    layers:
+      - ${self:custom.CONFA_LAYER}
+      - ${self:custom.JOSE_LAYER}
+    events:
+      - http:
+          path: /modality/create
+          method: POST
+          cors: true
+          integration: lambda
+  backoffice-modify-modality:
+    handler: backoffice/modify_modality.main
+    package:
+      individually: true
+      patterns:
+        - "!**/*"
+        - "backoffice/modify_modality.py"
+        - "connection/**"
+        - "models/**"
+        - "utils/**"
+        - "!node_modules/**"
+    role: ${self:custom.ROLE_BACK}
+    layers:
+      - ${self:custom.CONFA_LAYER}
+      - ${self:custom.JOSE_LAYER}
+    events:
+      - http:
+          path: /modality/modify
+          method: POST
+          cors: true
+          integration: lambda
+  backoffice-in-active-modality:
+    handler: backoffice/in_active_modality.main
+    package:
+      individually: true
+      patterns:
+        - "!**/*"
+        - "backoffice/in_active_modality.py"
+        - "connection/**"
+        - "models/**"
+        - "utils/**"
+        - "!node_modules/**"
+    role: ${self:custom.ROLE_BACK}
+    layers:
+      - ${self:custom.CONFA_LAYER}
+      - ${self:custom.JOSE_LAYER}
+    events:
+      - http:
+          path: /modality/in-activate
+          method: POST
+          cors: true
+          integration: lambda
+  backoffice-create-category:
+    handler: backoffice/create_category.main
+    package:
+      individually: true
+      patterns:
+        - "!**/*"
+        - "backoffice/create_category.py"
+        - "connection/**"
+        - "models/**"
+        - "utils/**"
+        - "!node_modules/**"
+    role: ${self:custom.ROLE_BACK}
+    layers:
+      - ${self:custom.CONFA_LAYER}
+      - ${self:custom.JOSE_LAYER}
+    events:
+      - http:
+          path: /category/create
+          method: POST
+          cors: true
+          integration: lambda
+  backoffice-modify-category:
+    handler: backoffice/modify_category.main
+    package:
+      individually: true
+      patterns:
+        - "!**/*"
+        - "backoffice/modify_category.py"
+        - "connection/**"
+        - "models/**"
+        - "utils/**"
+        - "!node_modules/**"
+    role: ${self:custom.ROLE_BACK}
+    layers:
+      - ${self:custom.CONFA_LAYER}
+      - ${self:custom.JOSE_LAYER}
+    events:
+      - http:
+          path: /category/modify
+          method: POST
+          cors: true
+          integration: lambda
+  backoffice-in-active-category:
+    handler: backoffice/in_active_category.main
+    package:
+      individually: true
+      patterns:
+        - "!**/*"
+        - "backoffice/in_active_category.py"
+        - "connection/**"
+        - "models/**"
+        - "utils/**"
+        - "!node_modules/**"
+    role: ${self:custom.ROLE_BACK}
+    layers:
+      - ${self:custom.CONFA_LAYER}
+      - ${self:custom.JOSE_LAYER}
+    events:
+      - http:
+          path: /category/in-activate
+          method: POST
+          cors: true
+          integration: lambda
+  backoffice-get-request-historic:
+    handler: backoffice/get_request_historic.main
+    package:
+      individually: true
+      patterns:
+        - "!**/*"
+        - "backoffice/get_request_historic.py"
+        - "connection/**"
+        - "models/**"
+        - "utils/**"
+        - "!node_modules/**"
+    role: ${self:custom.ROLE_BACK}
+    layers:
+      - ${self:custom.CONFA_LAYER}
+      - ${self:custom.JOSE_LAYER}
+    events:
+      - http:
+          path: /historic/by/request
+          method: POST
+          cors: true
+          integration: lambda
+  backoffice-get-request-details:
+    handler: backoffice/get_request_details.main
+    package:
+      individually: true
+      patterns:
+        - "!**/*"
+        - "backoffice/get_request_details.py"
+        - "connection/**"
+        - "models/**"
+        - "utils/**"
+        - "!node_modules/**"
+    role: ${self:custom.ROLE_BACK}
+    layers:
+      - ${self:custom.CONFA_LAYER}
+      - ${self:custom.JOSE_LAYER}
+      - ${self:custom.HOLIDAYS_LAYER}
+    events:
+      - http:
+          path: /request/details/{request_id}
+          method: GET
+          cors: true
+          integration: lambda
+  backoffice-get-request-attachments-by-id:
+    handler: backoffice/get_request_attachment_by_id.main
+    package:
+      individually: true
+      patterns:
+        - "!**/*"
+        - "backoffice/get_request_attachment_by_id.py"
+        - "connection/**"
+        - "models/**"
+        - "utils/**"
+        - "!node_modules/**"
+    role: ${self:custom.ROLE_BACK}
+    layers:
+      - ${self:custom.CONFA_LAYER}
+      - ${self:custom.JOSE_LAYER}
+    events:
+      - http:
+          path: /request/attachments/list/{attachment_owner}
+          method: POST
+          cors: true
+          integration: lambda
+  backoffice-create-notification:
+    handler: backoffice/create_notification.main
+    package:
+      individually: true
+      patterns:
+        - "!**/*"
+        - "backoffice/create_notification.py"
+        - "connection/**"
+        - "models/**"
+        - "utils/**"
+        - "!node_modules/**"
+    role: ${self:custom.ROLE_BACK}
+    layers:
+      - ${self:custom.CONFA_LAYER}
+      - ${self:custom.JOSE_LAYER}
+    events:
+      - http:
+          path: /notification/create
+          method: POST
+          cors: true
+          integration: lambda
+  backoffice-modify-notification:
+    handler: backoffice/modify_notification.main
+    package:
+      individually: true
+      patterns:
+        - "!**/*"
+        - "backoffice/modify_notification.py"
+        - "connection/**"
+        - "models/**"
+        - "utils/**"
+        - "!node_modules/**"
+    role: ${self:custom.ROLE_BACK}
+    layers:
+      - ${self:custom.CONFA_LAYER}
+      - ${self:custom.JOSE_LAYER}
+    events:
+      - http:
+          path: /notification/modify
+          method: POST
+          cors: true
+          integration: lambda
+  backoffice-in-active-notification:
+    handler: backoffice/in_active_notification.main
+    package:
+      individually: true
+      patterns:
+        - "!**/*"
+        - "backoffice/in_active_notification.py"
+        - "connection/**"
+        - "models/**"
+        - "utils/**"
+        - "!node_modules/**"
+    role: ${self:custom.ROLE_BACK}
+    layers:
+      - ${self:custom.CONFA_LAYER}
+      - ${self:custom.JOSE_LAYER}
+    events:
+      - http:
+          path: /notification/in-activate
+          method: POST
+          cors: true
+          integration: lambda
+  backoffice-answer-request:
+    handler: backoffice/answer_request.main
+    package:
+      individually: true
+      patterns:
+        - "!**/*"
+        - "backoffice/answer_request.py"
+        - "connection/**"
+        - "models/**"
+        - "utils/**"
+        - "!node_modules/**"
+    role: ${self:custom.ROLE_BACK}
+    layers:
+      - ${self:custom.CONFA_LAYER}
+      - ${self:custom.JOSE_LAYER}
+    events:
+      - http:
+          path: /request/answer
+          method: POST
+          cors: true
+          integration: lambda
+  backoffice-characterize-request:
+    handler: backoffice/characterize_request.main
+    package:
+      individually: true
+      patterns:
+        - "!**/*"
+        - "backoffice/characterize_request.py"
+        - "connection/**"
+        - "models/**"
+        - "utils/**"
+        - "!node_modules/**"
+    role: ${self:custom.ROLE_BACK}
+    layers:
+      - ${self:custom.CONFA_LAYER}
+      - ${self:custom.JOSE_LAYER}
+    events:
+      - http:
+          path: /request/characterization/create
+          method: POST
+          cors: true
+          integration: lambda
+  core-download-attachment:
+    handler: core/download_files.main
+    package:
+      individually: true
+      patterns:
+        - "!**/*"
+        - "core/**"
+        - "connection/**"
+        - "models/**"
+        - "utils/**"
+        - "!node_modules/**"
+    role: ${self:custom.ROLE_BACK}
+    layers:
+      - ${self:custom.CONFA_LAYER}
+      - ${self:custom.JOSE_LAYER}
+    events:
+      - http:
+          path: /download/attach
+          method: POST
+          cors: true
+          integration: lambda
+  email-service-email-send:
+    handler: email_service/send_email.main
+    package:
+      individually: true
+      patterns:
+        - "!**/*"
+        - "email_service/**"
+        - "connection/**"
+        - "core/**"
+        - "models/**"
+        - "utils/**"
+        - "!node_modules/**"
+    role: ${self:custom.ROLE_BACK}
+    layers:
+      - ${self:custom.CONFA_LAYER}
+    timeout: 20
+    events:
+      - eventBridge:
+          pattern:
+            source:
+              - "send-email"
+            detail-type:
+              - "notifications"
+  backoffice-get-requests-report-filter:
+    handler: backoffice/get_requests_report_by_filter.main
+    package:
+      individually: true
+      patterns:
+        - "!**/*"
+        - "backoffice/get_requests_report_by_filter.py"
+        - "connection/**"
+        - "models/**"
+        - "utils/**"
+        - "!node_modules/**"
+    role: ${self:custom.ROLE_BACK}
+    layers:
+      - ${self:custom.CONFA_LAYER}
+      - ${self:custom.JOSE_LAYER}
+      - ${self:custom.HOLIDAYS_LAYER}
+    events:
+      - http:
+          path: /requests/report/filter
+          method: POST
+          cors: true
+          integration: lambda
+  backoffice-get-all-requests-report-filter:
+    handler: backoffice/get_all_requests_report_by_filter.main
+    package:
+      individually: true
+      patterns:
+        - "!**/*"
+        - "backoffice/get_all_requests_report_by_filter.py"
+        - "connection/**"
+        - "models/**"
+        - "utils/**"
+        - "!node_modules/**"
+    role: ${self:custom.ROLE_BACK}
+    layers:
+      - ${self:custom.CONFA_LAYER}
+      - ${self:custom.JOSE_LAYER}
+      - ${self:custom.HOLIDAYS_LAYER}
+    events:
+      - http:
+          path: /requests/report/filter/all
+          method: POST
+          cors: true
+          integration: lambda
+  backoffice-get-requests-filter:
+    handler: backoffice/get_requests_by_filters.main
+    package:
+      individually: true
+      patterns:
+        - "!**/*"
+        - "backoffice/get_requests_by_filters.py"
+        - "connection/**"
+        - "models/**"
+        - "utils/**"
+        - "!node_modules/**"
+    role: ${self:custom.ROLE_BACK}
+    layers:
+      - ${self:custom.CONFA_LAYER}
+      - ${self:custom.JOSE_LAYER}
+      - ${self:custom.HOLIDAYS_LAYER}
+    events:
+      - http:
+          path: /requests/filter
+          method: POST
+          cors: true
+          integration: lambda
+  core-url-signer:
+    handler: core/url_signer.main
+    package:
+      individually: true
+      patterns:
+        - "!**/*"
+        - "core/url_signer.py"
+        - "connection/**"
+        - "models/**"
+        - "utils/**"
+        - "!node_modules/**"
+    role: ${self:custom.ROLE_BACK}
+    layers:
+      - ${self:custom.CONFA_LAYER}
+      - ${self:custom.JOSE_LAYER}
+      - ${self:custom.HOLIDAYS_LAYER}
+    events:
+      - http:
+          path: /url/signer/{attachment_owner}
+          method: POST
+          cors: true
+          integration: lambda
+plugins:
+  - serverless-offline

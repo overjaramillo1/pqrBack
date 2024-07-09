@@ -1,0 +1,52 @@
+
+name: DeployPipeline
+trigger:
+  branches:
+    include:
+      - dev
+
+variables:
+  - name: branchName
+    value:  $[replace(variables['Build.SourceBranch'], 'refs/heads/', '')]
+  - group: Dev
+
+pool:
+  vmImage: ubuntu-latest
+
+steps:
+- script: |
+    echo "current branch: $(branchName)"
+    echo "variable: $(AWS_ACCESS_KEY_ID_DEV)"
+  displayName: 'current branch'
+
+- task: NodeTool@0
+  inputs:
+    versionSpec: '18.x'
+  displayName: 'Install Node.js'
+
+- script: |
+    npm install
+  displayName: 'Run a npm install'
+
+- script: |
+    npm install -g serverless
+  displayName: 'install serverless'
+
+- script: |
+    sudo npx sls config credentials --provider aws --key $(AWS_ACCESS_KEY_ID_PROD) --secret $(AWS_SECRET_ACCESS_KEY_PROD)
+  displayName: 'configure keys for prod branch'
+  condition: eq(variables['Build.SourceBranch'], 'refs/heads/prod')
+
+- script: |
+    npx sls config credentials --provider aws --key $(AWS_ACCESS_KEY_ID_QA) --secret $(AWS_SECRET_ACCESS_KEY_QA)
+  displayName: 'configure keys for qa environment'
+  condition: eq(variables['Build.SourceBranch'], 'refs/heads/qa')
+
+- script: |
+    npx sls config credentials --provider aws --key $(AWS_ACCESS_KEY_ID_DEV) --secret $(AWS_SECRET_ACCESS_KEY_DEV)
+  displayName: 'configure keys for dev'
+  condition: eq(variables['Build.SourceBranch'], 'refs/heads/dev')
+
+- script: |
+    npx sls deploy --stage $(branchName)
+  displayName: 'Run deploy script'

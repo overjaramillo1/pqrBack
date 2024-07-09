@@ -1,0 +1,23 @@
+mimetypes = {
+    "txt": "text/plain",
+    "htm": "text/html",
+    "html": "text/html",
+    "css": "text/css",
+    "csv": "text/csv",
+    "json": "application/json",
+    "js": "application/javascript",
+    "xml": "application/xml",
+    "jpg": "image/jpeg",
+    "jpeg": "image/jpeg",
+    "png": "image/png",
+    "gif": "image/gif",
+    "mp3": "audio/mpeg",
+    "ogg": "audio/ogg",
+    "mp4": "video/mp4",
+    "mpeg": "video/mpeg",
+    "pdf": "application/pdf",
+    "doc": "application/msword",
+    "xls": "application/vnd.ms-excel",
+    "ppt": "application/vnd.ms-powerpoint",
+    "zip": "application/zip"
+}
